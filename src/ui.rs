@@ -1,6 +1,9 @@
 use std::{rc::Rc, time::Instant};
 
-use slint::platform::{software_renderer::MinimalSoftwareWindow, Platform};
+use slint::platform::{
+    software_renderer::{MinimalSoftwareWindow, TargetPixel},
+    Platform,
+};
 pub struct BasicPlatform {
     window: Rc<MinimalSoftwareWindow>,
     start_time: Instant,
