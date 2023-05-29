@@ -1,10 +1,18 @@
 export component MainUi inherits Window {
-    preferred-width: 200px;
+    preferred-width: 1920px;
     preferred-height: 100px;
+    in-out property <string> text : "unchanged";
+    in-out property <length> rect-x : 0;
     Rectangle {
+        x:root.rect-x;
         width: 200px;
         height: 100px;
         background: green;
         animate width{ iteration_count:-1; duration:2000ms; }
+        animate x {duration:500ms; }
+    }
+    testText:=Text {
+        text:root.text;
+
     }
 }

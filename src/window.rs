@@ -46,7 +46,7 @@ pub struct BarLayer {
     keyboard: Option<wl_keyboard::WlKeyboard>,
     keyboard_focus: bool,
     pointer: Option<wl_pointer::WlPointer>,
-    clickies: bool,
+    pub clickies: bool,
 }
 impl BarLayer {
     pub fn new(
@@ -80,6 +80,7 @@ impl BarLayer {
         layer.set_anchor(position);
         layer.set_keyboard_interactivity(KeyboardInteractivity::None);
         layer.set_size(width, height);
+        layer.set_exclusive_zone(height as i32);
 
         // In order for the layer surface to be mapped, we need to perform an initial commit with no attached\
         // buffer. For more info, see WaylandSurface::commit
@@ -386,11 +387,10 @@ impl BarLayer {
                 wl_shm::Format::Argb8888,
             )
             .expect("create buffer");
-        let blue = if self.clickies { u8::MAX } else { u8::MIN };
         for (r, p) in canvas.iter_mut().zip(
             self.software_buffer
                 .iter()
-                .flat_map(|p| [blue, p.g, p.r, u8::MAX]),
+                .flat_map(|p| [p.b, p.g, p.r, u8::MAX]),
         ) {
             *r = p;
         }
