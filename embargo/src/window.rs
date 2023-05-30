@@ -18,8 +18,7 @@ use smithay_client_toolkit::{
     },
     shell::{
         wlr_layer::{
-            Anchor, Layer, LayerShell, LayerShellHandler, LayerSurface,
-            LayerSurfaceConfigure,
+            Anchor, Layer, LayerShell, LayerShellHandler, LayerSurface, LayerSurfaceConfigure,
         },
         WaylandSurface,
     },
@@ -40,10 +39,9 @@ pub struct Bar {
     seat_state: SeatState,
     shm: Shm,
     output_state: OutputState,
-    surface: wl_surface::WlSurface,
     instances: Vec<BarInstance>,
+    compositor: CompositorState,
     pub exit: bool,
-    //compositor:CompositorState,
     layer_shell: LayerShell,
 }
 impl Bar {
@@ -60,7 +58,6 @@ impl Bar {
         let pool = SlotPool::new((config.width * config.height * 4) as usize, &shm)?;
         let layer_shell = LayerShell::bind(&config.globals, &config.qh)?;
         let compositor = CompositorState::bind(&config.globals, &config.qh)?;
-        let surface = compositor.create_surface(&config.qh);
 
         Ok((
             Self {
@@ -68,9 +65,9 @@ impl Bar {
                 registry_state: RegistryState::new(&config.globals),
                 seat_state: SeatState::new(&config.globals, &config.qh),
                 output_state: OutputState::new(&config.globals, &config.qh),
-                surface,
                 config,
                 shm,
+                compositor,
                 layer_shell,
                 window,
                 software_buffer: vec![start_pixel; (width * height) as usize],
@@ -95,7 +92,6 @@ impl Bar {
                 wl_shm::Format::Argb8888,
             )
             .expect("create buffer");
-        //        println!("{:?}", self.software_buffer[40]);
         for (r, p) in canvas.iter_mut().zip(
             self.software_buffer
                 .iter()
@@ -129,12 +125,10 @@ impl Bar {
 }
 
 pub struct BarConfig {
-    exit: bool,
     globals: GlobalList,
     position: Anchor,
     width: u32,
     height: u32,
-    // protocols: Protocols,
     qh: QueueHandle<Bar>,
 }
 impl BarConfig {
@@ -149,7 +143,6 @@ impl BarConfig {
         Ok((
             Self {
                 qh,
-                exit: false,
                 globals,
                 position,
                 width,
@@ -162,7 +155,6 @@ impl BarConfig {
 
 pub struct BarInstance {
     configured: bool,
-    closed: bool,
     layer: LayerSurface,
     output: wl_output::WlOutput,
 }
@@ -171,7 +163,6 @@ impl BarInstance {
     pub fn new(layer: LayerSurface, output: wl_output::WlOutput) -> Self {
         Self {
             configured: false,
-            closed: false,
             layer,
             output,
         }
@@ -207,8 +198,7 @@ impl OutputHandler for Bar {
         qh: &QueueHandle<Self>,
         output: wl_output::WlOutput,
     ) {
-        let compositor = CompositorState::bind(&self.config.globals, qh).unwrap();
-        let surface = compositor.create_surface(qh);
+        let surface = self.compositor.create_surface(qh);
         let layer = self.layer_shell.create_layer_surface(
             qh,
             surface,
@@ -300,11 +290,13 @@ impl PointerHandler for Bar {
         use slint::platform::WindowEvent;
         use PointerEventKind::*;
         for event in events {
-            // // Ignore events for other surfaces DOTHIS LATER
-            // if &event.surface != self.layer.wl_surface() {
-            //     continue;
-            // }
-            eprintln!("pointerhandler ignore surfaces");
+            if self
+                .instances
+                .iter()
+                .all(|i| event.surface != *i.layer.wl_surface())
+            {
+                continue;
+            }
             let position = LogicalPosition::new(event.position.0 as f32, event.position.1 as f32);
             match event.kind {
                 Enter { .. } => {
@@ -356,7 +348,8 @@ impl LayerShellHandler for Bar {
     ) {
         let mut instance = self
             .instances
-            .iter_mut().find(|i| i.layer == *layer)
+            .iter_mut()
+            .find(|i| i.layer == *layer)
             .expect("unable to configure layer.  It doesn't exist");
         if !instance.configured {
             instance.configured = true;
