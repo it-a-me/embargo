@@ -1,0 +1,37 @@
+export global Hyprland {
+    pure callback change_workspace(int);
+}
+export component Workspace inherits Rectangle {
+    height: 34px;
+    width: self.height;
+    in-out property <int> id;
+    in-out property text<=> txt.text;
+    in-out property <color> inactive_color;
+    in-out property <color> hover_color;
+    background: touch.has-hover ? hover-color : inactive-color;
+    txt := Text {
+        color: white;
+        font-size: 16px;
+    }
+    touch := TouchArea {
+        clicked => {
+            Hyprland.change-workspace(root.id);
+        }
+    }
+}
+export component MainUi inherits Window {
+    preferred-width: 1920px;
+    preferred-height: 40px;
+    background: #1E1F29;
+    in property <[{id:int, color:color, hover_color:color}]> workspaces;
+    HorizontalLayout {
+        y: 3px;
+        spacing: 5px;
+        for workspace in root.workspaces: Workspace {
+            text: workspace.id;
+            id: workspace.id;
+            inactive-color: workspace.color;
+            hover-color: workspace.hover_color;
+        }
+    }
+}

@@ -1,8 +1,11 @@
 //! This example is horrible. Please make a better one soon.
 
-use std::convert::TryInto;
+use std::rc::Rc;
 
-use slint::Rgb8Pixel;
+use slint::{
+    platform::{software_renderer::MinimalSoftwareWindow, PointerEventButton},
+    LogicalPosition,
+};
 use smithay_client_toolkit::{
     compositor::{CompositorHandler, CompositorState},
     delegate_compositor, delegate_keyboard, delegate_layer, delegate_output, delegate_pointer,
@@ -25,38 +28,44 @@ use smithay_client_toolkit::{
     shm::{slot::SlotPool, Shm, ShmHandler},
 };
 use wayland_client::{
-    globals::registry_queue_init,
+    globals::{registry_queue_init, GlobalList},
     protocol::{wl_keyboard, wl_output, wl_pointer, wl_seat, wl_shm, wl_surface},
     Connection, EventQueue, QueueHandle,
 };
 use xkbcommon::xkb::keysyms;
 
+use crate::ui::RgbaPixel;
+
 pub struct BarLayer {
-    registry_state: RegistryState,
-    seat_state: SeatState,
-    output_state: OutputState,
-    shm: Shm,
-    pub software_buffer: Vec<Rgb8Pixel>,
     pub exit: bool,
     first_configure: bool,
-    pool: SlotPool,
-    width: u32,
+    globals: GlobalList,
     height: u32,
-    layer: LayerSurface,
     keyboard: Option<wl_keyboard::WlKeyboard>,
     keyboard_focus: bool,
+    layer: LayerSurface,
+    layer_shell: LayerShell,
+    output_state: OutputState,
     pointer: Option<wl_pointer::WlPointer>,
-    pub clickies: bool,
+    pool: SlotPool,
+    registry_state: RegistryState,
+    seat_state: SeatState,
+    shm: Shm,
+    pub software_buffer: Vec<RgbaPixel>,
+    width: u32,
+    window: Rc<MinimalSoftwareWindow>,
+    position: Anchor,
 }
 impl BarLayer {
     pub fn new(
         conn: &Connection,
+        window: Rc<MinimalSoftwareWindow>,
         position: Anchor,
         width: u32,
         height: u32,
     ) -> anyhow::Result<(Self, EventQueue<Self>)> {
         // Enumerate the list of globals to get the protocols the server implements.
-        let (globals, event_queue) = registry_queue_init(&conn)?;
+        let (globals, event_queue) = registry_queue_init(conn)?;
         let qh = event_queue.handle();
 
         // The compositor (not to be confused with the server which is commonly called the compositor) allows
@@ -98,15 +107,18 @@ impl BarLayer {
                 // Seats and outputs may be hotplugged at runtime, therefore we need to setup a registry state to
                 // listen for seats and outputs.
                 registry_state: RegistryState::new(&globals),
+                window,
                 seat_state: SeatState::new(&globals, &qh),
                 output_state: OutputState::new(&globals, &qh),
                 shm,
-                clickies: false,
-                software_buffer: vec![Rgb8Pixel::new(0, 0, 0); (width * height) as usize],
+                globals,
+                software_buffer: vec![RgbaPixel::transparent(); (width * height) as usize],
                 exit: false,
+                position,
                 first_configure: true,
                 pool,
                 width,
+                layer_shell,
                 height,
                 layer,
                 keyboard: None,
@@ -150,9 +162,35 @@ impl OutputHandler for BarLayer {
     fn new_output(
         &mut self,
         _conn: &Connection,
-        _qh: &QueueHandle<Self>,
+        qh: &QueueHandle<Self>,
         _output: wl_output::WlOutput,
     ) {
+        println!("output created");
+        let compositor =
+            CompositorState::bind(&self.globals, &qh).expect("wl_compositor is not available");
+        let surface = compositor.create_surface(qh);
+        let layer = self.layer_shell.create_layer_surface(
+            &qh,
+            surface,
+            Layer::Top,
+            Some("simple_layer"),
+            None,
+        );
+        // Configure the layer surface, providing things like the anchor on screen, desired size and the keyboard
+        // interactivity
+        layer.set_anchor(self.position);
+        layer.set_keyboard_interactivity(KeyboardInteractivity::None);
+        layer.set_size(self.width, self.height);
+        layer.set_exclusive_zone(self.height as i32);
+
+        // In order for the layer surface to be mapped, we need to perform an initial commit with no attached\
+        // buffer. For more info, see WaylandSurface::commit
+        //
+        // The compositor will respond with an initial configure that we can then use to present to the layer
+        // surface with the correct options.
+        layer.commit();
+        self.layer = layer;
+        self.first_configure = true;
     }
 
     fn update_output(
@@ -169,13 +207,12 @@ impl OutputHandler for BarLayer {
         _qh: &QueueHandle<Self>,
         _output: wl_output::WlOutput,
     ) {
+        println!("output died");
     }
 }
 
 impl LayerShellHandler for BarLayer {
-    fn closed(&mut self, _conn: &Connection, _qh: &QueueHandle<Self>, _layer: &LayerSurface) {
-        self.exit = true;
-    }
+    fn closed(&mut self, _conn: &Connection, _qh: &QueueHandle<Self>, _layer: &LayerSurface) {}
 
     fn configure(
         &mut self,
@@ -332,12 +369,14 @@ impl PointerHandler for BarLayer {
         _pointer: &wl_pointer::WlPointer,
         events: &[PointerEvent],
     ) {
+        use slint::platform::WindowEvent;
         use PointerEventKind::*;
         for event in events {
             // Ignore events for other surfaces
             if &event.surface != self.layer.wl_surface() {
                 continue;
             }
+            let position = LogicalPosition::new(event.position.0 as f32, event.position.1 as f32);
             match event.kind {
                 Enter { .. } => {
                     println!("Pointer entered @{:?}", event.position);
@@ -345,14 +384,25 @@ impl PointerHandler for BarLayer {
                 Leave { .. } => {
                     println!("Pointer left");
                 }
-                Motion { .. } => {}
-                Press { button, .. } => {
-                    println!("Press {:x} @ {:?}", button, event.position);
+                Motion { .. } => {
+                    self.window
+                        .dispatch_event(WindowEvent::PointerMoved { position });
                 }
-                Release { button, .. } => {
-                    println!("Release {:x} @ {:?}", button, event.position);
-                    self.clickies = !self.clickies;
-                    eprintln!("{}", self.clickies);
+                Press {
+                    button: button_id, ..
+                } => {
+                    if let Some(button) = parse_button_id(button_id) {
+                        self.window
+                            .dispatch_event(WindowEvent::PointerPressed { position, button })
+                    }
+                }
+                Release {
+                    button: button_id, ..
+                } => {
+                    if let Some(button) = parse_button_id(button_id) {
+                        self.window
+                            .dispatch_event(WindowEvent::PointerReleased { position, button })
+                    }
                 }
                 Axis {
                     horizontal,
@@ -387,10 +437,11 @@ impl BarLayer {
                 wl_shm::Format::Argb8888,
             )
             .expect("create buffer");
+        //        println!("{:?}", self.software_buffer[40]);
         for (r, p) in canvas.iter_mut().zip(
             self.software_buffer
                 .iter()
-                .flat_map(|p| [p.b, p.g, p.r, u8::MAX]),
+                .flat_map(|p| [p.blue, p.green, p.red, p.alpha]),
         ) {
             *r = p;
         }
@@ -436,4 +487,13 @@ impl ProvidesRegistryState for BarLayer {
         &mut self.registry_state
     }
     registry_handlers![OutputState, SeatState];
+}
+
+fn parse_button_id(id: u32) -> Option<PointerEventButton> {
+    match id {
+        272 => Some(PointerEventButton::Left),
+        273 => Some(PointerEventButton::Right),
+        274 => Some(PointerEventButton::Middle),
+        _ => None,
+    }
 }
