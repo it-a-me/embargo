@@ -10,7 +10,6 @@ use smithay_client_toolkit::{
     delegate_compositor, delegate_layer, delegate_output, delegate_pointer, delegate_registry,
     delegate_seat, delegate_shm,
     output::{OutputHandler, OutputState},
-    reexports::protocols_wlr::layer_shell,
     registry::{ProvidesRegistryState, RegistryState},
     registry_handlers,
     seat::{
@@ -19,7 +18,7 @@ use smithay_client_toolkit::{
     },
     shell::{
         wlr_layer::{
-            Anchor, KeyboardInteractivity, Layer, LayerShell, LayerShellHandler, LayerSurface,
+            Anchor, Layer, LayerShell, LayerShellHandler, LayerSurface,
             LayerSurfaceConfigure,
         },
         WaylandSurface,
@@ -190,10 +189,10 @@ impl CompositorHandler for Bar {
     }
     fn frame(
         &mut self,
-        conn: &Connection,
-        qh: &QueueHandle<Self>,
-        surface: &wl_surface::WlSurface,
-        time: u32,
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+        _surface: &wl_surface::WlSurface,
+        _time: u32,
     ) {
         self.draw().unwrap();
     }
@@ -204,7 +203,7 @@ impl OutputHandler for Bar {
     }
     fn new_output(
         &mut self,
-        conn: &Connection,
+        _conn: &Connection,
         qh: &QueueHandle<Self>,
         output: wl_output::WlOutput,
     ) {
@@ -227,9 +226,9 @@ impl OutputHandler for Bar {
     }
     fn update_output(
         &mut self,
-        conn: &Connection,
-        qh: &QueueHandle<Self>,
-        output: wl_output::WlOutput,
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+        _output: wl_output::WlOutput,
     ) {
     }
     fn output_destroyed(
@@ -251,7 +250,7 @@ impl SeatHandler for Bar {
     fn seat_state(&mut self) -> &mut SeatState {
         &mut self.seat_state
     }
-    fn new_seat(&mut self, conn: &Connection, qh: &QueueHandle<Self>, seat: wl_seat::WlSeat) {}
+    fn new_seat(&mut self, _conn: &Connection, _qh: &QueueHandle<Self>, _seat: wl_seat::WlSeat) {}
     fn new_capability(
         &mut self,
         _conn: &Connection,
@@ -346,20 +345,18 @@ impl PointerHandler for Bar {
     }
 }
 impl LayerShellHandler for Bar {
-    fn closed(&mut self, conn: &Connection, qh: &QueueHandle<Self>, layer: &LayerSurface) {}
+    fn closed(&mut self, _conn: &Connection, _qh: &QueueHandle<Self>, _layer: &LayerSurface) {}
     fn configure(
         &mut self,
-        conn: &Connection,
-        qh: &QueueHandle<Self>,
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
         layer: &LayerSurface,
-        configure: LayerSurfaceConfigure,
-        serial: u32,
+        _configure: LayerSurfaceConfigure,
+        _serial: u32,
     ) {
         let mut instance = self
             .instances
-            .iter_mut()
-            .filter(|i| i.layer == *layer)
-            .next()
+            .iter_mut().find(|i| i.layer == *layer)
             .expect("unable to configure layer.  It doesn't exist");
         if !instance.configured {
             instance.configured = true;
