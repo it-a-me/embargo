@@ -1,5 +1,3 @@
-//! This example is horrible. Please make a better one soon.
-
 use std::rc::Rc;
 
 use slint::{
@@ -8,13 +6,12 @@ use slint::{
 };
 use smithay_client_toolkit::{
     compositor::{CompositorHandler, CompositorState},
-    delegate_compositor, delegate_keyboard, delegate_layer, delegate_output, delegate_pointer,
-    delegate_registry, delegate_seat, delegate_shm,
+    delegate_compositor, delegate_layer, delegate_output, delegate_pointer, delegate_registry,
+    delegate_seat, delegate_shm,
     output::{OutputHandler, OutputState},
     registry::{ProvidesRegistryState, RegistryState},
     registry_handlers,
     seat::{
-        keyboard::{KeyEvent, KeyboardHandler, Modifiers},
         pointer::{PointerEvent, PointerEventKind, PointerHandler},
         Capability, SeatHandler, SeatState,
     },
@@ -29,10 +26,9 @@ use smithay_client_toolkit::{
 };
 use wayland_client::{
     globals::{registry_queue_init, GlobalList},
-    protocol::{wl_keyboard, wl_output, wl_pointer, wl_seat, wl_shm, wl_surface},
+    protocol::{wl_output, wl_pointer, wl_seat, wl_shm, wl_surface},
     Connection, EventQueue, QueueHandle,
 };
-use xkbcommon::xkb::keysyms;
 
 use crate::ui::RgbaPixel;
 
@@ -41,8 +37,6 @@ pub struct BarLayer {
     first_configure: bool,
     globals: GlobalList,
     height: u32,
-    keyboard: Option<wl_keyboard::WlKeyboard>,
-    keyboard_focus: bool,
     layer: LayerSurface,
     layer_shell: LayerShell,
     output_state: OutputState,
@@ -121,8 +115,6 @@ impl BarLayer {
                 layer_shell,
                 height,
                 layer,
-                keyboard: None,
-                keyboard_focus: false,
                 pointer: None,
             },
             event_queue,
@@ -252,22 +244,16 @@ impl SeatHandler for BarLayer {
         seat: wl_seat::WlSeat,
         capability: Capability,
     ) {
-        if capability == Capability::Keyboard && self.keyboard.is_none() {
-            println!("Set keyboard capability");
-            let keyboard = self
-                .seat_state
-                .get_keyboard(qh, &seat, None)
-                .expect("Failed to create keyboard");
-            self.keyboard = Some(keyboard);
-        }
-
-        if capability == Capability::Pointer && self.pointer.is_none() {
-            println!("Set pointer capability");
-            let pointer = self
-                .seat_state
-                .get_pointer(qh, &seat)
-                .expect("Failed to create pointer");
-            self.pointer = Some(pointer);
+        match capability {
+            Capability::Pointer if self.pointer.is_none() => {
+                println!("Set pointer capability");
+                let pointer = self
+                    .seat_state
+                    .get_pointer(qh, &seat)
+                    .expect("Failed to create pointer");
+                self.pointer = Some(pointer);
+            }
+            _ => {}
         }
     }
 
@@ -278,87 +264,16 @@ impl SeatHandler for BarLayer {
         _: wl_seat::WlSeat,
         capability: Capability,
     ) {
-        if capability == Capability::Keyboard && self.keyboard.is_some() {
-            println!("Unset keyboard capability");
-            self.keyboard.take().unwrap().release();
-        }
-
-        if capability == Capability::Pointer && self.pointer.is_some() {
-            println!("Unset pointer capability");
-            self.pointer.take().unwrap().release();
+        match capability {
+            Capability::Pointer if self.pointer.is_some() => {
+                println!("Unset pointer capability");
+                self.pointer.take().unwrap().release();
+            }
+            _ => {}
         }
     }
 
     fn remove_seat(&mut self, _: &Connection, _: &QueueHandle<Self>, _: wl_seat::WlSeat) {}
-}
-
-impl KeyboardHandler for BarLayer {
-    fn enter(
-        &mut self,
-        _: &Connection,
-        _: &QueueHandle<Self>,
-        _: &wl_keyboard::WlKeyboard,
-        surface: &wl_surface::WlSurface,
-        _: u32,
-        _: &[u32],
-        keysyms: &[u32],
-    ) {
-        if self.layer.wl_surface() == surface {
-            println!("Keyboard focus on window with pressed syms: {keysyms:?}");
-            self.keyboard_focus = true;
-        }
-    }
-
-    fn leave(
-        &mut self,
-        _: &Connection,
-        _: &QueueHandle<Self>,
-        _: &wl_keyboard::WlKeyboard,
-        surface: &wl_surface::WlSurface,
-        _: u32,
-    ) {
-        if self.layer.wl_surface() == surface {
-            println!("Release keyboard focus on window");
-            self.keyboard_focus = false;
-        }
-    }
-
-    fn press_key(
-        &mut self,
-        _conn: &Connection,
-        _qh: &QueueHandle<Self>,
-        _: &wl_keyboard::WlKeyboard,
-        _: u32,
-        event: KeyEvent,
-    ) {
-        println!("Key press: {event:?}");
-        // press 'esc' to exit
-        if event.keysym == keysyms::KEY_Escape {
-            self.exit = true;
-        }
-    }
-
-    fn release_key(
-        &mut self,
-        _: &Connection,
-        _: &QueueHandle<Self>,
-        _: &wl_keyboard::WlKeyboard,
-        _: u32,
-        event: KeyEvent,
-    ) {
-        println!("Key release: {event:?}");
-    }
-
-    fn update_modifiers(
-        &mut self,
-        _: &Connection,
-        _: &QueueHandle<Self>,
-        _: &wl_keyboard::WlKeyboard,
-        _serial: u32,
-        modifiers: Modifiers,
-    ) {
-        println!("Update modifiers: {modifiers:?}");
-    }
 }
 
 impl PointerHandler for BarLayer {
@@ -475,7 +390,6 @@ delegate_output!(BarLayer);
 delegate_shm!(BarLayer);
 
 delegate_seat!(BarLayer);
-delegate_keyboard!(BarLayer);
 delegate_pointer!(BarLayer);
 
 delegate_layer!(BarLayer);
