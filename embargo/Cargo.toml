@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.71"
+chrono = "0.4.25"
 env_logger = "0.10.0"
 hyprland_workspaces = { version = "0.1.0", path = "../hyprland_workspaces" }
 slint = { version = "1.0.2", default-features = false, features = ["std", "compat-1-0"] }

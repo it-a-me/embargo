@@ -26,11 +26,16 @@ fn main() -> anyhow::Result<()> {
     let (mut bar, mut event_queue) =
         window::BarLayer::new(&conn, window.clone(), Anchor::TOP, width, height)?;
     let mut workspaces;
+    let mut formatted_time;
+    let mut time;
     loop {
         event_queue.blocking_dispatch(&mut bar)?;
         slint::platform::update_timers_and_animations();
         workspaces = Workspaces::new()?;
+        time = chrono::Local::now();
+        formatted_time = time.format("%I:%M%P -- %d of %b, %Y").to_string();
         ui.set_workspaces(ModelRc::new(workspaces.as_modal()));
+        ui.set_time(formatted_time.into());
         window.draw_if_needed(|renderer| {
             renderer.render(&mut bar.software_buffer, width as usize);
         });
