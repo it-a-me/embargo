@@ -167,10 +167,10 @@ impl OutputHandler for BarLayer {
     ) {
         println!("output created");
         let compositor =
-            CompositorState::bind(&self.globals, &qh).expect("wl_compositor is not available");
+            CompositorState::bind(&self.globals, qh).expect("wl_compositor is not available");
         let surface = compositor.create_surface(qh);
         let layer = self.layer_shell.create_layer_surface(
-            &qh,
+            qh,
             surface,
             Layer::Top,
             Some("simple_layer"),

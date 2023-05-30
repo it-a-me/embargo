@@ -35,14 +35,6 @@ pub struct RgbaPixel {
 }
 
 impl RgbaPixel {
-    pub fn new(red: u8, green: u8, blue: u8, alpha: u8) -> Self {
-        Self {
-            red,
-            green,
-            blue,
-            alpha,
-        }
-    }
     pub fn transparent() -> Self {
         Self {
             red: 0,
@@ -54,18 +46,15 @@ impl RgbaPixel {
 }
 impl TargetPixel for RgbaPixel {
     fn from_rgb(red: u8, green: u8, blue: u8) -> Self {
-        let s = Self {
+        Self {
             red,
             green,
             blue,
             alpha: u8::MAX,
-        };
-        //        println!("from rgb {:?}", s);
-        s
+        }
     }
 
     fn blend(&mut self, color: slint::platform::software_renderer::PremultipliedRgbaColor) {
-        //println!("blending, {:#?}\nwith\n{:#?}\n\n", color, self);
         let alpha = (u8::MAX - color.alpha) as u16;
         self.red = (self.red as u16 * alpha / 255) as u8 + color.red;
         self.green = (self.green as u16 * alpha / 255) as u8 + color.green;

@@ -5,7 +5,6 @@ use std::collections::HashMap;
 pub fn workspaces() -> anyhow::Result<Vec<Workspace>> {
     let workspaces = hyprland::data::Workspaces::get()?.to_vec();
     let mut workspace_icons = (1..10)
-        .into_iter()
         .map(|id| (id, WorkspaceState::Unused))
         .collect::<HashMap<_, _>>();
     for workspace in workspaces {
