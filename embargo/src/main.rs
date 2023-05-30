@@ -23,8 +23,14 @@ fn main() -> anyhow::Result<()> {
         .on_change_workspace(|id| hyprland_workspaces::change_workspace(id).unwrap());
     window.set_size(PhysicalSize::new(width, height));
     let conn = Connection::connect_to_env()?;
-    let (mut bar, mut event_queue) =
-        window::BarLayer::new(&conn, window.clone(), Anchor::TOP, width, height)?;
+    let (mut bar, mut event_queue) = window::Bar::new(
+        &conn,
+        window.clone(),
+        ui::RgbaPixel::transparent(),
+        Anchor::TOP,
+        width,
+        height,
+    )?;
     let mut workspaces;
     let mut formatted_time;
     let mut time;

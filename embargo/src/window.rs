@@ -1,5 +1,6 @@
 use std::rc::Rc;
 
+use crate::ui::RgbaPixel;
 use slint::{
     platform::{software_renderer::MinimalSoftwareWindow, PointerEventButton},
     LogicalPosition,
@@ -9,6 +10,7 @@ use smithay_client_toolkit::{
     delegate_compositor, delegate_layer, delegate_output, delegate_pointer, delegate_registry,
     delegate_seat, delegate_shm,
     output::{OutputHandler, OutputState},
+    reexports::protocols_wlr::layer_shell,
     registry::{ProvidesRegistryState, RegistryState},
     registry_handlers,
     seat::{
@@ -29,102 +31,155 @@ use wayland_client::{
     protocol::{wl_output, wl_pointer, wl_seat, wl_shm, wl_surface},
     Connection, EventQueue, QueueHandle,
 };
-
-use crate::ui::RgbaPixel;
-
-pub struct BarLayer {
-    pub exit: bool,
-    first_configure: bool,
-    globals: GlobalList,
-    height: u32,
-    layer: LayerSurface,
-    layer_shell: LayerShell,
-    output_state: OutputState,
+pub struct Bar {
+    config: BarConfig,
     pointer: Option<wl_pointer::WlPointer>,
+    window: Rc<MinimalSoftwareWindow>,
+    pub software_buffer: Vec<RgbaPixel>,
     pool: SlotPool,
     registry_state: RegistryState,
     seat_state: SeatState,
     shm: Shm,
-    pub software_buffer: Vec<RgbaPixel>,
-    width: u32,
-    window: Rc<MinimalSoftwareWindow>,
-    position: Anchor,
+    output_state: OutputState,
+    surface: wl_surface::WlSurface,
+    instances: Vec<BarInstance>,
+    pub exit: bool,
+    //compositor:CompositorState,
+    layer_shell: LayerShell,
 }
-impl BarLayer {
+impl Bar {
     pub fn new(
         conn: &Connection,
         window: Rc<MinimalSoftwareWindow>,
+        start_pixel: RgbaPixel,
         position: Anchor,
         width: u32,
         height: u32,
     ) -> anyhow::Result<(Self, EventQueue<Self>)> {
-        // Enumerate the list of globals to get the protocols the server implements.
-        let (globals, event_queue) = registry_queue_init(conn)?;
-        let qh = event_queue.handle();
+        let (config, event_queue) = BarConfig::new(conn, position, width, height)?;
+        let shm = Shm::bind(&config.globals, &config.qh).expect("wl_shm is not available");
+        let pool = SlotPool::new((config.width * config.height * 4) as usize, &shm)?;
+        let layer_shell = LayerShell::bind(&config.globals, &config.qh)?;
+        let compositor = CompositorState::bind(&config.globals, &config.qh)?;
+        let surface = compositor.create_surface(&config.qh);
 
-        // The compositor (not to be confused with the server which is commonly called the compositor) allows
-        // configuring surfaces to be presented.
-        let compositor =
-            CompositorState::bind(&globals, &qh).expect("wl_compositor is not available");
-        // This app uses the wlr layer shell, which may not be available with every compositor.
-        let layer_shell = LayerShell::bind(&globals, &qh).expect("layer shell is not available");
-        // Since we are not using the GPU in this example, we use wl_shm to allow software rendering to a buffer
-        // we share with the compositor process.
-        let shm = Shm::bind(&globals, &qh).expect("wl_shm is not available");
-
-        // A layer surface is created from a surface.
-        let surface = compositor.create_surface(&qh);
-
-        // And then we create the layer shell.
-        let layer =
-            layer_shell.create_layer_surface(&qh, surface, Layer::Top, Some("simple_layer"), None);
-        // Configure the layer surface, providing things like the anchor on screen, desired size and the keyboard
-        // interactivity
-        layer.set_anchor(position);
-        layer.set_keyboard_interactivity(KeyboardInteractivity::None);
-        layer.set_size(width, height);
-        layer.set_exclusive_zone(height as i32);
-
-        // In order for the layer surface to be mapped, we need to perform an initial commit with no attached\
-        // buffer. For more info, see WaylandSurface::commit
-        //
-        // The compositor will respond with an initial configure that we can then use to present to the layer
-        // surface with the correct options.
-        layer.commit();
-
-        // We don't know how large the window will be yet, so lets assume the minimum size we suggested for the
-        // initial memory allocation.
-        let pool =
-            SlotPool::new((width * height * 4) as usize, &shm).expect("Failed to create pool");
         Ok((
-            BarLayer {
-                // Seats and outputs may be hotplugged at runtime, therefore we need to setup a registry state to
-                // listen for seats and outputs.
-                registry_state: RegistryState::new(&globals),
-                window,
-                seat_state: SeatState::new(&globals, &qh),
-                output_state: OutputState::new(&globals, &qh),
-                shm,
-                globals,
-                software_buffer: vec![RgbaPixel::transparent(); (width * height) as usize],
-                exit: false,
-                position,
-                first_configure: true,
+            Self {
                 pool,
-                width,
+                registry_state: RegistryState::new(&config.globals),
+                seat_state: SeatState::new(&config.globals, &config.qh),
+                output_state: OutputState::new(&config.globals, &config.qh),
+                surface,
+                config,
+                shm,
                 layer_shell,
-                height,
-                layer,
+                window,
+                software_buffer: vec![start_pixel; (width * height) as usize],
+                exit: false,
                 pointer: None,
+                instances: Vec::new(),
             },
             event_queue,
         ))
+    }
+    fn draw(&mut self) -> anyhow::Result<()> {
+        let width = self.config.width;
+        let height = self.config.height;
+        let stride = width as i32 * 4;
 
-        // We don't draw immediately, the configure will notify us when to first draw.
+        let (buffer, canvas) = self
+            .pool
+            .create_buffer(
+                width as i32,
+                height as i32,
+                stride,
+                wl_shm::Format::Argb8888,
+            )
+            .expect("create buffer");
+        //        println!("{:?}", self.software_buffer[40]);
+        for (r, p) in canvas.iter_mut().zip(
+            self.software_buffer
+                .iter()
+                .flat_map(|p| [p.blue, p.green, p.red, p.alpha]),
+        ) {
+            *r = p;
+        }
+
+        // Draw to the window:
+
+        // Damage the entire window
+        for instance in self.instances.iter_mut().filter(|i| i.configured) {
+            instance
+                .layer
+                .wl_surface()
+                .damage_buffer(0, 0, width as i32, height as i32);
+
+            // Request our next frame
+            instance
+                .layer
+                .wl_surface()
+                .frame(&self.config.qh, instance.layer.wl_surface().clone());
+            // Attach and commit to present.
+            buffer
+                .attach_to(instance.layer.wl_surface())
+                .expect("buffer attach");
+            instance.layer.commit();
+        }
+        Ok(())
     }
 }
 
-impl CompositorHandler for BarLayer {
+pub struct BarConfig {
+    exit: bool,
+    globals: GlobalList,
+    position: Anchor,
+    width: u32,
+    height: u32,
+    // protocols: Protocols,
+    qh: QueueHandle<Bar>,
+}
+impl BarConfig {
+    fn new(
+        conn: &Connection,
+        position: Anchor,
+        width: u32,
+        height: u32,
+    ) -> anyhow::Result<(Self, EventQueue<Bar>)> {
+        let (globals, event_queue) = registry_queue_init(conn)?;
+        let qh = event_queue.handle();
+        Ok((
+            Self {
+                qh,
+                exit: false,
+                globals,
+                position,
+                width,
+                height,
+            },
+            event_queue,
+        ))
+    }
+}
+
+pub struct BarInstance {
+    configured: bool,
+    closed: bool,
+    layer: LayerSurface,
+    output: wl_output::WlOutput,
+}
+
+impl BarInstance {
+    pub fn new(layer: LayerSurface, output: wl_output::WlOutput) -> Self {
+        Self {
+            configured: false,
+            closed: false,
+            layer,
+            output,
+        }
+    }
+}
+
+impl CompositorHandler for Bar {
     fn scale_factor_changed(
         &mut self,
         _conn: &Connection,
@@ -132,111 +187,71 @@ impl CompositorHandler for BarLayer {
         _surface: &wl_surface::WlSurface,
         _new_factor: i32,
     ) {
-        // Not needed for this example.
     }
-
     fn frame(
         &mut self,
-        _conn: &Connection,
+        conn: &Connection,
         qh: &QueueHandle<Self>,
-        _surface: &wl_surface::WlSurface,
-        _time: u32,
+        surface: &wl_surface::WlSurface,
+        time: u32,
     ) {
-        self.draw(qh);
+        self.draw().unwrap();
     }
 }
-
-impl OutputHandler for BarLayer {
+impl OutputHandler for Bar {
     fn output_state(&mut self) -> &mut OutputState {
         &mut self.output_state
     }
-
     fn new_output(
         &mut self,
-        _conn: &Connection,
+        conn: &Connection,
         qh: &QueueHandle<Self>,
-        _output: wl_output::WlOutput,
+        output: wl_output::WlOutput,
     ) {
-        println!("output created");
-        let compositor =
-            CompositorState::bind(&self.globals, qh).expect("wl_compositor is not available");
+        let compositor = CompositorState::bind(&self.config.globals, qh).unwrap();
         let surface = compositor.create_surface(qh);
         let layer = self.layer_shell.create_layer_surface(
             qh,
             surface,
             Layer::Top,
             Some("simple_layer"),
-            None,
+            Some(&output),
         );
-        // Configure the layer surface, providing things like the anchor on screen, desired size and the keyboard
-        // interactivity
-        layer.set_anchor(self.position);
-        layer.set_keyboard_interactivity(KeyboardInteractivity::None);
-        layer.set_size(self.width, self.height);
-        layer.set_exclusive_zone(self.height as i32);
-
-        // In order for the layer surface to be mapped, we need to perform an initial commit with no attached\
-        // buffer. For more info, see WaylandSurface::commit
-        //
-        // The compositor will respond with an initial configure that we can then use to present to the layer
-        // surface with the correct options.
+        layer.set_anchor(self.config.position);
+        layer.set_size(self.config.width, self.config.height);
+        layer.set_exclusive_zone(self.config.height as i32);
         layer.commit();
-        self.layer = layer;
-        self.first_configure = true;
+        let instance = BarInstance::new(layer, output);
+        self.instances.push(instance);
+        eprintln!("output created. {} outputs exist", self.instances.len());
     }
-
     fn update_output(
         &mut self,
-        _conn: &Connection,
-        _qh: &QueueHandle<Self>,
-        _output: wl_output::WlOutput,
+        conn: &Connection,
+        qh: &QueueHandle<Self>,
+        output: wl_output::WlOutput,
     ) {
     }
-
     fn output_destroyed(
         &mut self,
         _conn: &Connection,
         _qh: &QueueHandle<Self>,
-        _output: wl_output::WlOutput,
+        output: wl_output::WlOutput,
     ) {
-        println!("output died");
+        self.instances.retain(|i| i.output != output);
+        eprintln!("output destroyed. {} outputs remain", self.instances.len());
     }
 }
-
-impl LayerShellHandler for BarLayer {
-    fn closed(&mut self, _conn: &Connection, _qh: &QueueHandle<Self>, _layer: &LayerSurface) {}
-
-    fn configure(
-        &mut self,
-        _conn: &Connection,
-        qh: &QueueHandle<Self>,
-        _layer: &LayerSurface,
-        configure: LayerSurfaceConfigure,
-        _serial: u32,
-    ) {
-        if configure.new_size.0 == 0 || configure.new_size.1 == 0 {
-            self.width = 256;
-            self.height = 256;
-        } else {
-            self.width = configure.new_size.0;
-            self.height = configure.new_size.1;
-        }
-
-        // Initiate the first draw.
-        if self.first_configure {
-            self.first_configure = false;
-            self.draw(qh);
-        }
+impl ShmHandler for Bar {
+    fn shm_state(&mut self) -> &mut Shm {
+        &mut self.shm
     }
 }
-
-impl SeatHandler for BarLayer {
+impl SeatHandler for Bar {
     fn seat_state(&mut self) -> &mut SeatState {
         &mut self.seat_state
     }
-
-    fn new_seat(&mut self, _: &Connection, _: &QueueHandle<Self>, _: wl_seat::WlSeat) {}
-
+    fn new_seat(&mut self, conn: &Connection, qh: &QueueHandle<Self>, seat: wl_seat::WlSeat) {}
     fn new_capability(
         &mut self,
         _conn: &Connection,
@@ -275,8 +290,7 @@ impl SeatHandler for BarLayer {
 
     fn remove_seat(&mut self, _: &Connection, _: &QueueHandle<Self>, _: wl_seat::WlSeat) {}
 }
-
-impl PointerHandler for BarLayer {
+impl PointerHandler for Bar {
     fn pointer_frame(
         &mut self,
         _conn: &Connection,
@@ -287,10 +301,11 @@ impl PointerHandler for BarLayer {
         use slint::platform::WindowEvent;
         use PointerEventKind::*;
         for event in events {
-            // Ignore events for other surfaces
-            if &event.surface != self.layer.wl_surface() {
-                continue;
-            }
+            // // Ignore events for other surfaces DOTHIS LATER
+            // if &event.surface != self.layer.wl_surface() {
+            //     continue;
+            // }
+            eprintln!("pointerhandler ignore surfaces");
             let position = LogicalPosition::new(event.position.0 as f32, event.position.1 as f32);
             match event.kind {
                 Enter { .. } => {
@@ -330,73 +345,38 @@ impl PointerHandler for BarLayer {
         }
     }
 }
-
-impl ShmHandler for BarLayer {
-    fn shm_state(&mut self) -> &mut Shm {
-        &mut self.shm
-    }
-}
-
-impl BarLayer {
-    pub fn draw(&mut self, qh: &QueueHandle<Self>) {
-        let width = self.width;
-        let height = self.height;
-        let stride = self.width as i32 * 4;
-
-        let (buffer, canvas) = self
-            .pool
-            .create_buffer(
-                width as i32,
-                height as i32,
-                stride,
-                wl_shm::Format::Argb8888,
-            )
-            .expect("create buffer");
-        //        println!("{:?}", self.software_buffer[40]);
-        for (r, p) in canvas.iter_mut().zip(
-            self.software_buffer
-                .iter()
-                .flat_map(|p| [p.blue, p.green, p.red, p.alpha]),
-        ) {
-            *r = p;
+impl LayerShellHandler for Bar {
+    fn closed(&mut self, conn: &Connection, qh: &QueueHandle<Self>, layer: &LayerSurface) {}
+    fn configure(
+        &mut self,
+        conn: &Connection,
+        qh: &QueueHandle<Self>,
+        layer: &LayerSurface,
+        configure: LayerSurfaceConfigure,
+        serial: u32,
+    ) {
+        let mut instance = self
+            .instances
+            .iter_mut()
+            .filter(|i| i.layer == *layer)
+            .next()
+            .expect("unable to configure layer.  It doesn't exist");
+        if !instance.configured {
+            instance.configured = true;
+            self.draw().unwrap();
         }
-
-        // Draw to the window:
-
-        // Damage the entire window
-        self.layer
-            .wl_surface()
-            .damage_buffer(0, 0, width as i32, height as i32);
-
-        // Request our next frame
-        self.layer
-            .wl_surface()
-            .frame(qh, self.layer.wl_surface().clone());
-
-        // Attach and commit to present.
-        buffer
-            .attach_to(self.layer.wl_surface())
-            .expect("buffer attach");
-        self.layer.commit();
-
-        // TODO save and reuse buffer when the window size is unchanged.  This is especially
-        // useful if you do damage tracking, since you don't need to redraw the undamaged parts
-        // of the canvas.
     }
 }
 
-delegate_compositor!(BarLayer);
-delegate_output!(BarLayer);
-delegate_shm!(BarLayer);
+delegate_compositor!(Bar);
+delegate_output!(Bar);
+delegate_seat!(Bar);
+delegate_shm!(Bar);
+delegate_pointer!(Bar);
+delegate_registry!(Bar);
+delegate_layer!(Bar);
 
-delegate_seat!(BarLayer);
-delegate_pointer!(BarLayer);
-
-delegate_layer!(BarLayer);
-
-delegate_registry!(BarLayer);
-
-impl ProvidesRegistryState for BarLayer {
+impl ProvidesRegistryState for Bar {
     fn registry(&mut self) -> &mut RegistryState {
         &mut self.registry_state
     }
