@@ -1,3 +1,4 @@
+use human_repr::HumanCount;
 use hyprland_workspaces::WorkspaceState;
 use slint::{
     platform::software_renderer::MinimalSoftwareWindow, Color, ComponentHandle, ModelRc,
@@ -7,6 +8,7 @@ use smithay_client_toolkit::shell::wlr_layer::Anchor;
 use wayland_client::Connection;
 
 mod error;
+mod hardware_mon;
 mod ui;
 mod window;
 slint::include_modules!();
@@ -31,17 +33,47 @@ fn main() -> anyhow::Result<()> {
         width,
         height,
     )?;
+    let mut hw_mon = hardware_mon::HardwareMonitor::new("enp6s0".into());
+    hw_mon.update();
     let mut workspaces;
     let mut formatted_time;
     let mut time;
+    ui.global::<HardwareMonitor>().set_totalmemory(
+        HumanCount::human_count_bytes(hw_mon.total_mem())
+            .to_string()
+            .into(),
+    );
     loop {
         event_queue.blocking_dispatch(&mut bar)?;
         slint::platform::update_timers_and_animations();
+        hw_mon.update();
         workspaces = Workspaces::new()?;
+
         time = chrono::Local::now();
         formatted_time = time.format("%I:%M%P -- %d of %b, %Y").to_string();
+
         ui.set_workspaces(ModelRc::new(workspaces.as_modal()));
         ui.set_time(formatted_time.into());
+        ui.global::<HardwareMonitor>().set_cpu_usage(
+            ((hw_mon.cpu_usage() * 10.0).round() / 10.0)
+                .to_string()
+                .into(),
+        );
+        ui.global::<HardwareMonitor>().set_used_memory(
+            HumanCount::human_count_bytes(hw_mon.used_mem())
+                .to_string()
+                .into(),
+        );
+        ui.global::<HardwareMonitor>().set_network_up(
+            human_repr::HumanThroughput::human_throughput_bytes(hw_mon.uploaded_bytes())
+                .to_string()
+                .into(),
+        );
+        ui.global::<HardwareMonitor>().set_network_down(
+            human_repr::HumanThroughput::human_throughput_bytes(hw_mon.downloaded_bytes())
+                .to_string()
+                .into(),
+        );
         window.draw_if_needed(|renderer| {
             renderer.render(&mut bar.software_buffer, width as usize);
         });

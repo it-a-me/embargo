@@ -1,5 +1,6 @@
 [workspace]
 members = [
    "embargo",
+   "embargo_widget",
    "hyprland_workspaces",
 ]

@@ -1,6 +1,13 @@
 export global Hyprland {
     pure callback change_workspace(int);
 }
+export global HardwareMonitor {
+    in-out property <string> used_memory;
+    in-out property <string> totalmemory;
+    in-out property <string> cpu_usage;
+    in-out property <string> network_up;
+    in-out property <string> network_down;
+}
 export component Workspace inherits Rectangle {
     height: 34px;
     width: self.height;
@@ -39,5 +46,32 @@ export component MainUi inherits Window {
         color: white;
         font-size: 17px;
         x: root.width / 2 - self.width / 2;
+    }
+    Hw := HorizontalLayout {
+        alignment: end;
+        spacing: 20px;
+        padding: 10px;
+        Text {
+            font-size: 16px;
+            color: whitesmoke;
+            text: "Cpu:\{HardwareMonitor.cpu-usage}";
+        }
+        Text {
+            font-size: 16px;
+            color: whitesmoke;
+            text: "Mem:\{HardwareMonitor.used-memory}/\{HardwareMonitor.totalmemory}";
+        }
+        Text {
+            font-size: 16px;
+            color: whitesmoke;
+            width: 100px;
+            text: "Up: \{HardwareMonitor.network-up}";
+        }
+        Text {
+            font-size: 16px;
+            width: 140px;
+            color: whitesmoke;
+            text: "Down: \{HardwareMonitor.network-down}";
+        }
     }
 }
