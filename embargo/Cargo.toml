@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.71"
 chrono = "0.4.25"
+clap = { version = "4.3.1", features = ["derive"] }
 env_logger = "0.10.0"
 human-repr = "1.1.0"
 hyprland_workspaces = { version = "0.1.0", path = "../hyprland_workspaces" }
