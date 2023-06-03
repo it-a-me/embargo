@@ -12,9 +12,9 @@ mod hardware_mon;
 mod ui;
 mod window;
 slint::include_modules!();
-//pub use error::Error;
 
 fn main() -> anyhow::Result<()> {
+    tracing::subscriber::set_global_default(tracing_subscriber::FmtSubscriber::new())?;
     let (width, height) = (1920, 40);
     let window = MinimalSoftwareWindow::new(
         slint::platform::software_renderer::RepaintBufferType::ReusedBuffer,

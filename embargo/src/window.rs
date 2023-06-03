@@ -1,4 +1,5 @@
 use std::rc::Rc;
+use tracing::{event, Level};
 
 use crate::ui::RgbaPixel;
 use slint::{
@@ -99,8 +100,6 @@ impl Bar {
         ) {
             *r = p;
         }
-
-        // Draw to the window:
 
         // Damage the entire window
         for instance in self.instances.iter_mut().filter(|i| i.configured) {
@@ -212,7 +211,11 @@ impl OutputHandler for Bar {
         layer.commit();
         let instance = BarInstance::new(layer, output);
         self.instances.push(instance);
-        eprintln!("output created. {} outputs exist", self.instances.len());
+        event!(
+            Level::DEBUG,
+            "output created. {} outputs exist",
+            self.instances.len()
+        );
     }
     fn update_output(
         &mut self,
@@ -228,7 +231,11 @@ impl OutputHandler for Bar {
         output: wl_output::WlOutput,
     ) {
         self.instances.retain(|i| i.output != output);
-        eprintln!("output destroyed. {} outputs remain", self.instances.len());
+        event!(
+            Level::DEBUG,
+            "output destroyed. {} outputs remain",
+            self.instances.len()
+        );
     }
 }
 impl ShmHandler for Bar {
@@ -250,7 +257,7 @@ impl SeatHandler for Bar {
     ) {
         match capability {
             Capability::Pointer if self.pointer.is_none() => {
-                println!("Set pointer capability");
+                event!(Level::DEBUG, "Set pointer capability");
                 let pointer = self
                     .seat_state
                     .get_pointer(qh, &seat)
@@ -270,7 +277,7 @@ impl SeatHandler for Bar {
     ) {
         match capability {
             Capability::Pointer if self.pointer.is_some() => {
-                println!("Unset pointer capability");
+                event!(Level::DEBUG, "Unset pointer capability");
                 self.pointer.take().unwrap().release();
             }
             _ => {}
@@ -299,12 +306,8 @@ impl PointerHandler for Bar {
             }
             let position = LogicalPosition::new(event.position.0 as f32, event.position.1 as f32);
             match event.kind {
-                Enter { .. } => {
-                    println!("Pointer entered @{:?}", event.position);
-                }
-                Leave { .. } => {
-                    println!("Pointer left");
-                }
+                Enter { .. } => {}
+                Leave { .. } => {}
                 Motion { .. } => {
                     self.window
                         .dispatch_event(WindowEvent::PointerMoved { position });
@@ -325,13 +328,7 @@ impl PointerHandler for Bar {
                             .dispatch_event(WindowEvent::PointerReleased { position, button })
                     }
                 }
-                Axis {
-                    horizontal,
-                    vertical,
-                    ..
-                } => {
-                    println!("Scroll H:{horizontal:?}, V:{vertical:?}");
-                }
+                Axis { .. } => {}
             }
         }
     }
