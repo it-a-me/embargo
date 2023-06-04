@@ -1,13 +1,6 @@
-use std::any::TypeId;
-use std::cell::OnceCell;
-use std::sync::OnceLock;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-};
 
-use serde::de;
 use smithay_client_toolkit::shell::wlr_layer::Anchor;
 use tracing::Level;
 #[derive(Debug)]
@@ -90,11 +83,11 @@ enum SimpleAnchor {
     Top,
     Bottom,
 }
-impl Into<Anchor> for SimpleAnchor {
-    fn into(self) -> Anchor {
-        match self {
-            Self::Top => Anchor::TOP,
-            Self::Bottom => Anchor::BOTTOM,
+impl From<SimpleAnchor> for Anchor {
+    fn from(val: SimpleAnchor) -> Self {
+        match val {
+            SimpleAnchor::Top => Anchor::TOP,
+            SimpleAnchor::Bottom => Anchor::BOTTOM,
         }
     }
 }
