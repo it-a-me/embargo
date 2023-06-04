@@ -1,9 +1,7 @@
 use clap::Parser;
 use human_repr::HumanCount;
-use hyprland_workspaces::WorkspaceState;
 use slint::{
-    platform::software_renderer::MinimalSoftwareWindow, Color, ComponentHandle, ModelRc,
-    PhysicalSize, VecModel,
+    platform::software_renderer::MinimalSoftwareWindow, ComponentHandle, ModelRc, PhysicalSize,
 };
 use wayland_client::Connection;
 
@@ -31,6 +29,7 @@ fn main() -> anyhow::Result<()> {
     );
     slint::platform::set_platform(Box::new(ui::BasicPlatform::new(window.clone()))).unwrap();
     let ui = MainUi::new()?;
+    #[cfg(feature = "hyprland")]
     ui.global::<Hyprland>()
         .on_change_workspace(|id| hyprland_workspaces::change_workspace(id).unwrap());
     window.set_size(PhysicalSize::new(width, height));
@@ -46,6 +45,7 @@ fn main() -> anyhow::Result<()> {
     )?;
     let mut hw_mon = hardware_mon::HardwareMonitor::new("enp6s0".into());
     hw_mon.update();
+    #[cfg(feature = "hyprland")]
     let mut workspaces;
     let mut formatted_time;
     let mut time;
@@ -58,11 +58,15 @@ fn main() -> anyhow::Result<()> {
         event_queue.blocking_dispatch(&mut bar)?;
         slint::platform::update_timers_and_animations();
         hw_mon.update();
-        workspaces = Workspaces::new()?;
+        #[cfg(feature = "hyprland")]
+        {
+            workspaces = hyprland::Workspaces::new()?;
+        }
 
         time = chrono::Local::now();
         formatted_time = time.format("%I:%M%P -- %d of %b, %Y").to_string();
 
+        #[cfg(feature = "hyprland")]
         ui.set_workspaces(ModelRc::new(workspaces.as_modal()));
         ui.set_time(formatted_time.into());
         ui.global::<HardwareMonitor>().set_cpu_usage(
@@ -94,30 +98,34 @@ fn main() -> anyhow::Result<()> {
     }
     Ok(())
 }
-use hyprland_workspaces::Workspace;
-struct Workspaces(Vec<Workspace>);
-impl Workspaces {
-    pub fn new() -> anyhow::Result<Self> {
-        let workspaces = hyprland_workspaces::workspaces()?;
-        Ok(Workspaces(workspaces))
-    }
-    pub fn as_modal(&self) -> VecModel<(Color, Color, i32)> {
-        let workspaces = self
-            .0
-            .iter()
-            .map(|w| {
-                //fkasjl
-                let color = Self::state_to_color(&w.state);
-                (color, color.brighter(0.2), w.id)
-            })
-            .collect::<Vec<_>>();
-        VecModel::from(workspaces)
-    }
-    fn state_to_color(state: &WorkspaceState) -> Color {
-        match state {
-            WorkspaceState::Active => Color::from_rgb_u8(48, 112, 144),
-            WorkspaceState::Used => Color::from_rgb_u8(32, 64, 80),
-            WorkspaceState::Unused => Color::from_rgb_u8(50, 54, 63),
+#[cfg(feature = "hyprland")]
+pub mod hyprland {
+    use hyprland_workspaces::{Workspace, WorkspaceState};
+    use slint::{Color, VecModel};
+    pub struct Workspaces(Vec<Workspace>);
+    impl Workspaces {
+        pub fn new() -> anyhow::Result<Self> {
+            let workspaces = hyprland_workspaces::workspaces()?;
+            Ok(Workspaces(workspaces))
+        }
+        pub fn as_modal(&self) -> VecModel<(Color, Color, i32)> {
+            let workspaces = self
+                .0
+                .iter()
+                .map(|w| {
+                    //fkasjl
+                    let color = Self::state_to_color(&w.state);
+                    (color, color.brighter(0.2), w.id)
+                })
+                .collect::<Vec<_>>();
+            VecModel::from(workspaces)
+        }
+        fn state_to_color(state: &WorkspaceState) -> Color {
+            match state {
+                WorkspaceState::Active => Color::from_rgb_u8(48, 112, 144),
+                WorkspaceState::Used => Color::from_rgb_u8(32, 64, 80),
+                WorkspaceState::Unused => Color::from_rgb_u8(50, 54, 63),
+            }
         }
     }
 }

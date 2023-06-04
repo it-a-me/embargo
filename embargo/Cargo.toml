@@ -12,7 +12,7 @@ clap = { version = "4.3.1", features = ["derive", "cargo"] }
 dirs = "5.0.1"
 env_logger = "0.10.0"
 human-repr = "1.1.0"
-hyprland_workspaces = { version = "0.1.0", path = "../hyprland_workspaces" }
+hyprland_workspaces = { version = "0.1.0", path = "../hyprland_workspaces", optional=true }
 ron = "0.8.0"
 serde = { version = "1.0.163", features = ["derive"] }
 slint = { version = "1.0.2", default-features = false, features = ["std", "compat-1-0"] }
@@ -25,3 +25,7 @@ wayland-client = "0.30.1"
 
 [build-dependencies]
 slint-build = "1.0.2"
+
+[features]
+default = ["hyprland"]
+hyprland = ["dep:hyprland_workspaces"]
