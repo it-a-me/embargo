@@ -8,10 +8,13 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.71"
 chrono = "0.4.25"
-clap = { version = "4.3.1", features = ["derive"] }
+clap = { version = "4.3.1", features = ["derive", "cargo"] }
+dirs = "5.0.1"
 env_logger = "0.10.0"
 human-repr = "1.1.0"
 hyprland_workspaces = { version = "0.1.0", path = "../hyprland_workspaces" }
+ron = "0.8.0"
+serde = { version = "1.0.163", features = ["derive"] }
 slint = { version = "1.0.2", default-features = false, features = ["std", "compat-1-0"] }
 smithay-client-toolkit = "0.17.0"
 sysinfo = "0.29.0"

@@ -8,6 +8,6 @@ pub struct Cli {
     ///set the minimum log level
     pub log_level: Level,
     ///override the default config path (~/.config/embargo_bar/config.ron)
-    #[arg(short, long)]
+    #[arg(short = 'c', long)]
     pub override_config: Option<PathBuf>,
 }

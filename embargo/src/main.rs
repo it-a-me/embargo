@@ -9,6 +9,7 @@ use smithay_client_toolkit::shell::wlr_layer::Anchor;
 use wayland_client::Connection;
 
 mod cli;
+mod config;
 mod error;
 mod hardware_mon;
 mod ui;
@@ -18,7 +19,8 @@ slint::include_modules!();
 fn main() -> anyhow::Result<()> {
     tracing::subscriber::set_global_default(tracing_subscriber::FmtSubscriber::new())?;
     let args = cli::Cli::parse();
-    dbg!(args);
+    let conf = config::Config::parse(args.override_config.as_deref())?;
+    dbg!(conf);
     let (width, height) = (1920, 40);
     let window = MinimalSoftwareWindow::new(
         slint::platform::software_renderer::RepaintBufferType::ReusedBuffer,
