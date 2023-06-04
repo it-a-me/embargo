@@ -38,6 +38,7 @@ pub struct Bar {
     pool: SlotPool,
     registry_state: RegistryState,
     seat_state: SeatState,
+    layer_name: String,
     shm: Shm,
     output_state: OutputState,
     instances: Vec<BarInstance>,
@@ -51,6 +52,7 @@ impl Bar {
         window: Rc<MinimalSoftwareWindow>,
         start_pixel: RgbaPixel,
         position: Anchor,
+        layer_name: &str,
         width: u32,
         height: u32,
     ) -> anyhow::Result<(Self, EventQueue<Self>)> {
@@ -69,6 +71,7 @@ impl Bar {
                 config,
                 shm,
                 compositor,
+                layer_name: String::from(layer_name),
                 layer_shell,
                 window,
                 software_buffer: vec![start_pixel; (width * height) as usize],
@@ -202,7 +205,7 @@ impl OutputHandler for Bar {
             qh,
             surface,
             Layer::Top,
-            Some("simple_layer"),
+            Some(&self.layer_name),
             Some(&output),
         );
         layer.set_anchor(self.config.position);

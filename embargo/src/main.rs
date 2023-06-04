@@ -5,7 +5,6 @@ use slint::{
     platform::software_renderer::MinimalSoftwareWindow, Color, ComponentHandle, ModelRc,
     PhysicalSize, VecModel,
 };
-use smithay_client_toolkit::shell::wlr_layer::Anchor;
 use wayland_client::Connection;
 
 mod cli;
@@ -17,10 +16,15 @@ mod window;
 slint::include_modules!();
 
 fn main() -> anyhow::Result<()> {
-    tracing::subscriber::set_global_default(tracing_subscriber::FmtSubscriber::new())?;
     let args = cli::Cli::parse();
+    tracing::subscriber::set_global_default(
+        tracing_subscriber::FmtSubscriber::builder()
+            .without_time()
+            .pretty()
+            .with_max_level(args.log_level)
+            .finish(),
+    )?;
     let conf = config::Config::parse(args.override_config.as_deref())?;
-    dbg!(conf);
     let (width, height) = (1920, 40);
     let window = MinimalSoftwareWindow::new(
         slint::platform::software_renderer::RepaintBufferType::ReusedBuffer,
@@ -35,7 +39,8 @@ fn main() -> anyhow::Result<()> {
         &conn,
         window.clone(),
         ui::RgbaPixel::transparent(),
-        Anchor::TOP,
+        conf.anchor,
+        &conf.layer_name,
         width,
         height,
     )?;

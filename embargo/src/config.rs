@@ -1,14 +1,15 @@
 use std::path::{Path, PathBuf};
-use std::time::Duration;
 
 use smithay_client_toolkit::shell::wlr_layer::Anchor;
 use tracing::Level;
+mod timings;
+use timings::Timing;
 #[derive(Debug)]
 pub struct Config {
     //    slint_file: PathBuf,
-    anchor: Anchor,
-    config_path: PathBuf,
-    layer_name: String,
+    pub anchor: Anchor,
+    pub config_path: PathBuf,
+    pub layer_name: String,
     timings: Vec<Timing>,
 }
 impl Config {
@@ -90,15 +91,4 @@ impl From<SimpleAnchor> for Anchor {
             SimpleAnchor::Bottom => Anchor::BOTTOM,
         }
     }
-}
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-struct Timing {
-    name: String,
-    timing: RefreshType,
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-enum RefreshType {
-    Continous(Duration),
-    Never,
 }
