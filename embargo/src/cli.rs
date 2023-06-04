@@ -4,9 +4,10 @@ use clap::Parser;
 use tracing::Level;
 #[derive(Debug, Parser, Clone)]
 pub struct Cli {
-    #[arg(default_value_t = Level::WARN)]
+    #[arg(short, long, default_value_t = Level::WARN)]
     ///set the minimum log level
-    log_level: Level,
+    pub log_level: Level,
     ///override the default config path (~/.config/embargo_bar/config.ron)
-    override_config: Option<PathBuf>,
+    #[arg(short, long)]
+    pub override_config: Option<PathBuf>,
 }
