@@ -541,6 +541,7 @@ dependencies = [
  "chrono",
  "clap",
  "dirs",
+ "embargo_workspace",
  "env_logger",
  "human-repr",
  "hyprland_workspaces",
@@ -559,6 +560,13 @@ dependencies = [
 [[package]]
 name = "embargo_widget"
 version = "0.1.0"
+
+[[package]]
+name = "embargo_workspace"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+]
 
 [[package]]
 name = "env_logger"
@@ -930,6 +938,7 @@ name = "hyprland_workspaces"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "embargo_workspace",
  "hyprland",
 ]
 

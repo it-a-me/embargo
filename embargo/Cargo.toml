@@ -10,6 +10,7 @@ anyhow = "1.0.71"
 chrono = "0.4.25"
 clap = { version = "4.3.1", features = ["derive", "cargo"] }
 dirs = "5.0.1"
+embargo_workspace = { version = "0.1.0", path = "../embargo_workspace", optional=true}
 env_logger = "0.10.0"
 human-repr = "1.1.0"
 hyprland_workspaces = { version = "0.1.0", path = "../hyprland_workspaces", optional=true }
@@ -28,4 +29,5 @@ slint-build = "1.0.2"
 
 [features]
 default = ["hyprland"]
-hyprland = ["dep:hyprland_workspaces"]
+hyprland = ["dep:hyprland_workspaces", "workspaces"]
+workspaces = ["dep:embargo_workspace"]

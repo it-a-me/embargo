@@ -30,8 +30,8 @@ fn main() -> anyhow::Result<()> {
     slint::platform::set_platform(Box::new(ui::BasicPlatform::new(window.clone()))).unwrap();
     let ui = MainUi::new()?;
     #[cfg(feature = "hyprland")]
-    ui.global::<Hyprland>()
-        .on_change_workspace(|id| hyprland_workspaces::change_workspace(id).unwrap());
+    ui.global::<Workspaces>()
+        .on_change_workspace(|id| hyprland_workspaces::change_workspace(id as u32).unwrap());
     window.set_size(PhysicalSize::new(width, height));
     let conn = Connection::connect_to_env()?;
     let (mut bar, mut event_queue) = window::Bar::new(
@@ -98,11 +98,12 @@ fn main() -> anyhow::Result<()> {
     }
     Ok(())
 }
-#[cfg(feature = "hyprland")]
+#[cfg(feature = "workspaces")]
 pub mod hyprland {
-    use hyprland_workspaces::{Workspace, WorkspaceState};
+    use embargo_workspace::WorkspaceState;
+    use hyprland_workspaces::HyprlandWorkspace as DisplayWorkspace;
     use slint::{Color, VecModel};
-    pub struct Workspaces(Vec<Workspace>);
+    pub struct Workspaces(Vec<DisplayWorkspace>);
     impl Workspaces {
         pub fn new() -> anyhow::Result<Self> {
             let workspaces = hyprland_workspaces::workspaces()?;
@@ -115,7 +116,7 @@ pub mod hyprland {
                 .map(|w| {
                     //fkasjl
                     let color = Self::state_to_color(&w.state);
-                    (color, color.brighter(0.2), w.id)
+                    (color, color.brighter(0.2), w.position as i32)
                 })
                 .collect::<Vec<_>>();
             VecModel::from(workspaces)

@@ -1,4 +1,4 @@
-export global Hyprland {
+export global Workspaces {
     pure callback change_workspace(int);
 }
 export global HardwareMonitor {
@@ -22,7 +22,7 @@ export component Workspace inherits Rectangle {
     }
     touch := TouchArea {
         clicked => {
-            Hyprland.change-workspace(root.id);
+            Workspaces.change-workspace(root.id);
         }
     }
 }
