@@ -14,8 +14,8 @@ embargo_workspace = { version = "0.1.0", path = "../embargo_workspace", optional
 env_logger = "0.10.0"
 human-repr = "1.1.0"
 hyprland_workspaces = { version = "0.1.0", path = "../hyprland_workspaces", optional=true }
-ron = "0.8.0"
 serde = { version = "1.0.163", features = ["derive"] }
+serde_yaml = "0.9.21"
 slint = { version = "1.0.2", default-features = false, features = ["std", "compat-1-0"] }
 smithay-client-toolkit = "0.17.0"
 sysinfo = "0.29.0"

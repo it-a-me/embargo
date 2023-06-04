@@ -2,15 +2,13 @@ use std::path::{Path, PathBuf};
 
 use smithay_client_toolkit::shell::wlr_layer::Anchor;
 use tracing::Level;
-mod timings;
-use timings::Timing;
+//mod timings;
 #[derive(Debug)]
 pub struct Config {
     //    slint_file: PathBuf,
     pub anchor: Anchor,
     pub config_path: PathBuf,
     pub layer_name: String,
-    timings: Vec<Timing>,
 }
 impl Config {
     pub fn parse(override_path: Option<&Path>) -> anyhow::Result<Self> {
@@ -20,7 +18,7 @@ impl Config {
             (Self::default_config_path()?, true)
         };
         let config_file = match (config_path.exists(), is_default_path) {
-            (true, _) => ron::from_str(&std::fs::read_to_string(&config_path)?)?,
+            (true, _) => serde_yaml::from_str(&std::fs::read_to_string(&config_path)?)?,
             (false, false) => {
                 anyhow::bail!(
                     "config does not exist at '{}'",
@@ -41,7 +39,7 @@ impl Config {
             config_path,
             layer_name: config_file.layer_name,
             anchor: config_file.anchor.into(),
-            timings: config_file.timings,
+            // timings: config_file.timings,
         })
     }
     fn default_config_path() -> anyhow::Result<PathBuf> {
@@ -50,7 +48,7 @@ impl Config {
         ))?;
         let embargo_config_dir = os_config_dir.join(format!("{}_bar", clap::crate_name!()));
         std::fs::create_dir_all(&embargo_config_dir)?;
-        Ok(embargo_config_dir.join("config.ron"))
+        Ok(embargo_config_dir.join("config.yaml"))
     }
 }
 
@@ -59,13 +57,12 @@ impl Config {
 struct ConfigFile {
     anchor: SimpleAnchor,
     layer_name: String,
-    timings: Vec<Timing>,
+    //timings: Vec<Timing>,
 }
 
 impl ConfigFile {
     pub fn generate_default(path: &Path) -> anyhow::Result<()> {
-        let config =
-            ron::ser::to_string_pretty(&ConfigFile::default(), ron::ser::PrettyConfig::new())?;
+        let config = serde_yaml::to_string(&Self::default())?;
         std::fs::write(path, config.as_bytes())?;
         Ok(())
     }
@@ -75,7 +72,7 @@ impl Default for ConfigFile {
         Self {
             layer_name: clap::crate_name!().to_string(),
             anchor: SimpleAnchor::Top,
-            timings: Vec::new(),
+            //            timings: Vec::new(),
         }
     }
 }
