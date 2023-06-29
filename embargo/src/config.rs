@@ -1,14 +1,31 @@
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 use layer_platform::Anchor;
 use tracing::Level;
-//mod timings;
+mod timings;
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct Script {
+    update: timings::Refresh,
+    script: String,
+}
+impl Script {
+    fn example() -> Self {
+        Self {
+            script: "date".to_string(),
+            update: timings::Refresh::Continous(std::time::Duration::from_secs(10)),
+        }
+    }
+}
 #[derive(Debug)]
 pub struct Config {
     //    slint_file: PathBuf,
     pub anchor: Anchor,
     pub config_path: PathBuf,
     pub layer_name: String,
+    pub scripts: HashMap<String, Script>,
 }
 impl Config {
     pub fn parse(override_path: Option<&Path>) -> anyhow::Result<Self> {
@@ -38,8 +55,8 @@ impl Config {
         Ok(Self {
             config_path,
             layer_name: config_file.layer_name,
+            scripts: config_file.scripts,
             anchor: config_file.anchor.into(),
-            // timings: config_file.timings,
         })
     }
     fn default_config_path() -> anyhow::Result<PathBuf> {
@@ -57,7 +74,7 @@ impl Config {
 struct ConfigFile {
     anchor: SimpleAnchor,
     layer_name: String,
-    //timings: Vec<Timing>,
+    scripts: HashMap<String, Script>,
 }
 
 impl ConfigFile {
@@ -72,7 +89,9 @@ impl Default for ConfigFile {
         Self {
             layer_name: clap::crate_name!().to_string(),
             anchor: SimpleAnchor::Top,
-            //            timings: Vec::new(),
+            scripts: HashMap::from_iter(
+                vec![("example_date".to_string(), Script::example())].into_iter(),
+            ),
         }
     }
 }

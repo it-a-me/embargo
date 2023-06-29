@@ -1,13 +1,6 @@
 use std::time::Duration;
-
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct Timing {
-    name: String,
-    timing: RefreshType,
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub enum RefreshType {
+pub enum Refresh {
     Continous(Duration),
     Never,
 }
