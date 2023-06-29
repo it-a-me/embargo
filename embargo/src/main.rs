@@ -1,3 +1,4 @@
+#![warn(clippy::pedantic, clippy::perf)]
 use clap::Parser;
 use slint::{platform::software_renderer::MinimalSoftwareWindow, PhysicalSize};
 pub type Window = std::rc::Rc<MinimalSoftwareWindow>;
