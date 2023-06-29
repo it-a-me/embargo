@@ -2,6 +2,7 @@ use std::rc::Rc;
 use tracing::{event, Level};
 
 use crate::ui::RgbaPixel;
+use crate::EventQueue;
 use slint::{
     platform::{software_renderer::MinimalSoftwareWindow, PointerEventButton},
     LogicalPosition,
@@ -28,7 +29,7 @@ use smithay_client_toolkit::{
 use wayland_client::{
     globals::{registry_queue_init, GlobalList},
     protocol::{wl_output, wl_pointer, wl_seat, wl_shm, wl_surface},
-    Connection, EventQueue, QueueHandle,
+    Connection, QueueHandle,
 };
 pub struct Bar {
     config: BarConfig,
@@ -54,7 +55,7 @@ impl Bar {
         layer_name: &str,
         width: u32,
         height: u32,
-    ) -> anyhow::Result<(Self, EventQueue<Self>)> {
+    ) -> anyhow::Result<(Self, EventQueue)> {
         let conn = Connection::connect_to_env()?;
         let (config, event_queue) = BarConfig::new(&conn, position, width, height)?;
         let shm = Shm::bind(&config.globals, &config.qh).expect("wl_shm is not available");
@@ -139,7 +140,7 @@ impl BarConfig {
         position: Anchor,
         width: u32,
         height: u32,
-    ) -> anyhow::Result<(Self, EventQueue<Bar>)> {
+    ) -> anyhow::Result<(Self, EventQueue)> {
         let (globals, event_queue) = registry_queue_init(conn)?;
         let qh = event_queue.handle();
         Ok((
