@@ -67,7 +67,7 @@ impl Default for RgbaPixel {
             red: 0,
             green: 0,
             blue: 0,
-            alpha: 0,
+            alpha: u8::MAX,
         }
     }
 }

@@ -1,12 +1,13 @@
 use clap::Parser;
 use slint::{platform::software_renderer::MinimalSoftwareWindow, ComponentHandle, PhysicalSize};
+pub type Window = std::rc::Rc<MinimalSoftwareWindow>;
+
 mod cli;
 mod config;
 mod error;
 mod hardware_mon;
 mod run;
-pub type Window = std::rc::Rc<MinimalSoftwareWindow>;
-slint::include_modules!();
+
 use layer_platform::{Bar, LayerShellPlatform, RgbaPixel};
 
 fn setup_logger(
@@ -32,18 +33,35 @@ fn main() -> anyhow::Result<()> {
         slint::platform::software_renderer::RepaintBufferType::ReusedBuffer,
     );
     slint::platform::set_platform(Box::new(LayerShellPlatform::new(window.clone()))).unwrap();
-    let ui = MainUi::new()?;
-    #[cfg(feature = "hyprland")]
-    ui.global::<Workspaces>()
-        .on_change_workspace(|id| hyprland_workspaces::change_workspace(id as u32).unwrap());
+    let mut compiler = slint_interpreter::ComponentCompiler::new();
+    let slint_src = spin_on::spin_on(compiler.build_from_path(&conf.slint_entrypoint));
+    for diagnostic in compiler.diagnostics() {
+        use slint_interpreter::DiagnosticLevel;
+        match diagnostic.level() {
+            DiagnosticLevel::Error => tracing::error!("{}", diagnostic.to_string()),
+            DiagnosticLevel::Warning => tracing::warn!("{}", diagnostic.to_string()),
+            _ => unreachable!(),
+        }
+    }
+    let ui = slint_src.unwrap().create()?;
+
+    // #[cfg(feature = "hyprland")]
+    // ui.global::<Workspaces>()
+    // .on_change_workspace(|id| hyprland_workspaces::change_workspace(id as u32).unwrap());
     window.set_size(PhysicalSize::new(width, height));
     let (bar, event_queue) = Bar::new(
         window.clone(),
-        RgbaPixel::transparent(),
+        RgbaPixel::default(),
         conf.anchor,
         &conf.layer_name,
         width,
         height,
     )?;
-    run::run(ui, bar, event_queue, window, width)
+    match args.command {
+        cli::Command::Run => run::run(ui, bar, event_queue, window, width)?,
+        cli::Command::PrintConfig => {
+            println!("{:#?}", conf);
+        }
+    }
+    Ok(())
 }

@@ -24,16 +24,18 @@ pub struct Config {
     //    slint_file: PathBuf,
     pub anchor: Anchor,
     pub config_path: PathBuf,
+    pub slint_entrypoint: PathBuf,
     pub layer_name: String,
     pub scripts: HashMap<String, Script>,
 }
 impl Config {
     pub fn parse(override_path: Option<&Path>) -> anyhow::Result<Self> {
-        let (config_path, is_default_path) = if let Some(path) = override_path {
+        let (config_dir, is_default_path) = if let Some(path) = override_path {
             (path.to_path_buf(), false)
         } else {
-            (Self::default_config_path()?, true)
+            (Self::default_config_dir()?, true)
         };
+        let config_path = config_dir.join("config.toml");
         let config_file = match (config_path.exists(), is_default_path) {
             (true, _) => toml::from_str(&std::fs::read_to_string(&config_path)?)?,
             (false, false) => {
@@ -53,19 +55,22 @@ impl Config {
             }
         };
         Ok(Self {
-            config_path,
+            slint_entrypoint: config_file
+                .slint_entrypoint
+                .unwrap_or_else(|| config_dir.join("slint").join("main.slint")),
             layer_name: config_file.layer_name,
             scripts: config_file.scripts,
             anchor: config_file.anchor.into(),
+            config_path,
         })
     }
-    fn default_config_path() -> anyhow::Result<PathBuf> {
+    fn default_config_dir() -> anyhow::Result<PathBuf> {
         let os_config_dir = dirs::config_dir().ok_or(anyhow::anyhow!(
             "failed to get config dir.  Are you running Linux?"
         ))?;
         let embargo_config_dir = os_config_dir.join(format!("{}_bar", clap::crate_name!()));
         std::fs::create_dir_all(&embargo_config_dir)?;
-        Ok(embargo_config_dir.join("config.toml"))
+        Ok(embargo_config_dir)
     }
 }
 
@@ -75,6 +80,7 @@ struct ConfigFile {
     anchor: SimpleAnchor,
     layer_name: String,
     scripts: HashMap<String, Script>,
+    slint_entrypoint: Option<PathBuf>,
 }
 
 impl ConfigFile {
@@ -92,6 +98,7 @@ impl Default for ConfigFile {
             scripts: HashMap::from_iter(
                 vec![("example_date".to_string(), Script::example())].into_iter(),
             ),
+            slint_entrypoint: None,
         }
     }
 }

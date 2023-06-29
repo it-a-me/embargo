@@ -16,15 +16,14 @@ human-repr = "1.1.0"
 hyprland_workspaces = { version = "0.1.0", path = "../hyprland_workspaces", optional=true }
 layer_platform = { version = "0.1.0", path = "../layer_platform" }
 serde = { version = "1.0.163", features = ["derive"] }
-slint = { version = "1.0.2", default-features = false, features = ["std", "compat-1-0"] }
+slint = { version = "1.0.2", default-features = false, features = ["std", "compat-1-0", "software-renderer-systemfonts"] }
+slint-interpreter = { version = "1.1.0", features = ["spin_on"] }
+spin_on = "0.1.1"
 sysinfo = "0.29.0"
 thiserror = "1.0.40"
 toml = { version = "0.7.5", features = ["indexmap"] }
 tracing = "0.1.37"
 tracing-subscriber = "0.3.17"
-
-[build-dependencies]
-slint-build = "1.0.2"
 
 [features]
 default = ["hyprland"]
