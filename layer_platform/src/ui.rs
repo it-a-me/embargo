@@ -4,11 +4,11 @@ use slint::platform::{
     software_renderer::{MinimalSoftwareWindow, TargetPixel},
     Platform,
 };
-pub struct BasicPlatform {
+pub struct LayerShellPlatform {
     window: Rc<MinimalSoftwareWindow>,
     start_time: Instant,
 }
-impl BasicPlatform {
+impl LayerShellPlatform {
     pub fn new(window: Rc<MinimalSoftwareWindow>) -> Self {
         Self {
             window,
@@ -16,7 +16,7 @@ impl BasicPlatform {
         }
     }
 }
-impl Platform for BasicPlatform {
+impl Platform for LayerShellPlatform {
     fn create_window_adapter(
         &self,
     ) -> Result<std::rc::Rc<dyn slint::platform::WindowAdapter>, slint::PlatformError> {
@@ -59,5 +59,15 @@ impl TargetPixel for RgbaPixel {
         self.red = (self.red as u16 * alpha / 255) as u8 + color.red;
         self.green = (self.green as u16 * alpha / 255) as u8 + color.green;
         self.blue = (self.blue as u16 * alpha / 255) as u8 + color.blue;
+    }
+}
+impl Default for RgbaPixel {
+    fn default() -> Self {
+        Self {
+            red: 0,
+            green: 0,
+            blue: 0,
+            alpha: 0,
+        }
     }
 }

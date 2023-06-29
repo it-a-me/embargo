@@ -3,15 +3,12 @@ use human_repr::HumanCount;
 use slint::{
     platform::software_renderer::MinimalSoftwareWindow, ComponentHandle, ModelRc, PhysicalSize,
 };
-use wayland_client::Connection;
-
 mod cli;
 mod config;
 mod error;
 mod hardware_mon;
-mod ui;
-mod window;
 slint::include_modules!();
+use layer_platform::{Bar, LayerShellPlatform, RgbaPixel};
 
 fn main() -> anyhow::Result<()> {
     let args = cli::Cli::parse();
@@ -27,17 +24,15 @@ fn main() -> anyhow::Result<()> {
     let window = MinimalSoftwareWindow::new(
         slint::platform::software_renderer::RepaintBufferType::ReusedBuffer,
     );
-    slint::platform::set_platform(Box::new(ui::BasicPlatform::new(window.clone()))).unwrap();
+    slint::platform::set_platform(Box::new(LayerShellPlatform::new(window.clone()))).unwrap();
     let ui = MainUi::new()?;
     #[cfg(feature = "hyprland")]
     ui.global::<Workspaces>()
         .on_change_workspace(|id| hyprland_workspaces::change_workspace(id as u32).unwrap());
     window.set_size(PhysicalSize::new(width, height));
-    let conn = Connection::connect_to_env()?;
-    let (mut bar, mut event_queue) = window::Bar::new(
-        &conn,
+    let (mut bar, mut event_queue) = Bar::new(
         window.clone(),
-        ui::RgbaPixel::transparent(),
+        RgbaPixel::transparent(),
         conf.anchor,
         &conf.layer_name,
         width,

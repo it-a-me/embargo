@@ -48,7 +48,6 @@ pub struct Bar {
 }
 impl Bar {
     pub fn new(
-        conn: &Connection,
         window: Rc<MinimalSoftwareWindow>,
         start_pixel: RgbaPixel,
         position: Anchor,
@@ -56,7 +55,8 @@ impl Bar {
         width: u32,
         height: u32,
     ) -> anyhow::Result<(Self, EventQueue<Self>)> {
-        let (config, event_queue) = BarConfig::new(conn, position, width, height)?;
+        let conn = Connection::connect_to_env()?;
+        let (config, event_queue) = BarConfig::new(&conn, position, width, height)?;
         let shm = Shm::bind(&config.globals, &config.qh).expect("wl_shm is not available");
         let pool = SlotPool::new((config.width * config.height * 4) as usize, &shm)?;
         let layer_shell = LayerShell::bind(&config.globals, &config.qh)?;
