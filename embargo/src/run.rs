@@ -2,13 +2,13 @@ use crate::hardware_mon;
 use human_repr::HumanCount;
 use layer_platform::Bar;
 use slint::{platform::software_renderer::MinimalSoftwareWindow, ComponentHandle};
-use slint_interpreter::{ComponentInstance};
+use slint_interpreter::ComponentInstance;
 pub fn run(
     // ui: MainUi,
-    ui: ComponentInstance,
+    ui: &ComponentInstance,
     mut bar: Bar,
     mut event_queue: layer_platform::EventQueue,
-    window: std::rc::Rc<MinimalSoftwareWindow>,
+    window: &std::rc::Rc<MinimalSoftwareWindow>,
     width: u32,
 ) -> anyhow::Result<()> {
     let mut hw_mon = hardware_mon::HardwareMonitor::new("enp6s0".into());
@@ -109,7 +109,7 @@ pub mod hyprland {
                 .iter()
                 .map(|w| {
                     //fkasjl
-                    let color = Self::state_to_color(&w.state);
+                    let color = Self::state_to_color(w.state);
                     Struct::from_iter([
                         ("color".into(), Brush::from(color).into()),
                         ("hover_color".into(), Brush::from(color).into()),
@@ -123,7 +123,7 @@ pub mod hyprland {
             let modalrc: slint::ModelRc<Value> = rc_modal.into();
             Value::Model(modalrc)
         }
-        fn state_to_color(state: &WorkspaceState) -> Color {
+        fn state_to_color(state: WorkspaceState) -> Color {
             match state {
                 WorkspaceState::Active => Color::from_rgb_u8(48, 112, 144),
                 WorkspaceState::Used => Color::from_rgb_u8(32, 64, 80),

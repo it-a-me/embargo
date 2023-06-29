@@ -50,33 +50,31 @@ impl HardwareMonitor {
         self.system.total_memory()
     }
     pub fn uploaded_bytes(&self) -> u64 {
-        match self
+        if let Some(bytes) = self
             .system
             .networks()
             .into_iter()
             .find(|(name, _)| **name == self.interface_name)
             .map(|(_, network)| network.transmitted())
         {
-            Some(bytes) => bytes / self.network_refresh_frequency.as_secs(),
-            None => {
-                tracing::warn!("unable to locate interface '{}'", self.interface_name);
-                0
-            }
+            bytes / self.network_refresh_frequency.as_secs()
+        } else {
+            tracing::warn!("unable to locate interface '{}'", self.interface_name);
+            0
         }
     }
     pub fn downloaded_bytes(&self) -> u64 {
-        match self
+        if let Some(bytes) = self
             .system
             .networks()
             .into_iter()
             .find(|(name, _)| **name == self.interface_name)
             .map(|(_, network)| network.received())
         {
-            Some(bytes) => bytes / self.network_refresh_frequency.as_secs(),
-            None => {
-                tracing::warn!("unable to locate interface '{}'", self.interface_name);
-                0
-            }
+            bytes / self.network_refresh_frequency.as_secs()
+        } else {
+            tracing::warn!("unable to locate interface '{}'", self.interface_name);
+            0
         }
     }
 }
@@ -90,7 +88,7 @@ pub struct HardwareModule {
 impl HardwareModule {
     pub fn new(frequency: Duration, refresh: Box<dyn Fn(&mut System)>) -> Self {
         Self {
-            last_update: Instant::now() - frequency,
+            last_update: Instant::now().checked_sub(frequency).unwrap(),
             frequency,
             refresh,
         }

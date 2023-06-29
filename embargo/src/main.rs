@@ -59,9 +59,9 @@ fn main() -> anyhow::Result<()> {
         height,
     )?;
     match args.command.unwrap_or(cli::Command::Run) {
-        cli::Command::Run => run::run(ui, bar, event_queue, window, width)?,
+        cli::Command::Run => run::run(&ui, bar, event_queue, &window, width)?,
         cli::Command::PrintConfig => {
-            println!("{:#?}", conf);
+            println!("{conf:#?}");
         }
     }
     Ok(())

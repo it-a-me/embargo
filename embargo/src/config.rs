@@ -95,9 +95,9 @@ impl Default for ConfigFile {
         Self {
             layer_name: clap::crate_name!().to_string(),
             anchor: SimpleAnchor::Top,
-            scripts: HashMap::from_iter(
-                vec![("example_date".to_string(), Script::example())].into_iter(),
-            ),
+            scripts: vec![("example_date".to_string(), Script::example())]
+                .into_iter()
+                .collect::<HashMap<_, _>>(),
             slint_entrypoint: None,
         }
     }
