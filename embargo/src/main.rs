@@ -10,16 +10,24 @@ mod hardware_mon;
 slint::include_modules!();
 use layer_platform::{Bar, LayerShellPlatform, RgbaPixel};
 
-fn main() -> anyhow::Result<()> {
-    let args = cli::Cli::parse();
+fn setup_logger(
+    log_level: tracing::Level,
+) -> Result<(), tracing::subscriber::SetGlobalDefaultError> {
     tracing::subscriber::set_global_default(
         tracing_subscriber::FmtSubscriber::builder()
             .without_time()
             .pretty()
-            .with_max_level(args.log_level)
+            .with_max_level(log_level)
             .finish(),
-    )?;
+    )
+}
+
+fn main() -> anyhow::Result<()> {
+    let args = cli::Cli::parse();
+    setup_logger(args.log_level)?;
+
     let conf = config::Config::parse(args.override_config.as_deref())?;
+
     let (width, height) = (1920, 40);
     let window = MinimalSoftwareWindow::new(
         slint::platform::software_renderer::RepaintBufferType::ReusedBuffer,
