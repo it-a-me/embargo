@@ -12,7 +12,7 @@ pub struct Cli {
     #[arg(short = 'c', long)]
     pub override_config: Option<PathBuf>,
     #[command(subcommand)]
-    pub command: Command,
+    pub command: Option<Command>,
 }
 #[derive(Subcommand, Debug, Clone)]
 pub enum Command {
