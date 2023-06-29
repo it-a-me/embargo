@@ -18,7 +18,7 @@ impl Config {
             (Self::default_config_path()?, true)
         };
         let config_file = match (config_path.exists(), is_default_path) {
-            (true, _) => serde_yaml::from_str(&std::fs::read_to_string(&config_path)?)?,
+            (true, _) => toml::from_str(&std::fs::read_to_string(&config_path)?)?,
             (false, false) => {
                 anyhow::bail!(
                     "config does not exist at '{}'",
@@ -48,7 +48,7 @@ impl Config {
         ))?;
         let embargo_config_dir = os_config_dir.join(format!("{}_bar", clap::crate_name!()));
         std::fs::create_dir_all(&embargo_config_dir)?;
-        Ok(embargo_config_dir.join("config.yaml"))
+        Ok(embargo_config_dir.join("config.toml"))
     }
 }
 
@@ -62,7 +62,7 @@ struct ConfigFile {
 
 impl ConfigFile {
     pub fn generate_default(path: &Path) -> anyhow::Result<()> {
-        let config = serde_yaml::to_string(&Self::default())?;
+        let config = toml::to_string(&Self::default())?;
         std::fs::write(path, config.as_bytes())?;
         Ok(())
     }
