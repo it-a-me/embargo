@@ -1179,10 +1179,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "embargo_widget"
-version = "0.1.0"
-
-[[package]]
 name = "embargo_workspace"
 version = "0.1.0"
 dependencies = [

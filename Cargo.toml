@@ -1,7 +1,6 @@
 [workspace]
 members = [
    "embargo",
-   "embargo_widget",
    "hyprland_workspaces",
    "embargo_workspace",
    "layer_platform"
