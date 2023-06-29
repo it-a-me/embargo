@@ -1,5 +1,5 @@
 use clap::Parser;
-use slint::{platform::software_renderer::MinimalSoftwareWindow, ComponentHandle, PhysicalSize};
+use slint::{platform::software_renderer::MinimalSoftwareWindow, PhysicalSize};
 pub type Window = std::rc::Rc<MinimalSoftwareWindow>;
 
 mod cli;

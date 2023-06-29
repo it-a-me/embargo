@@ -1,8 +1,8 @@
 use crate::hardware_mon;
 use human_repr::HumanCount;
 use layer_platform::Bar;
-use slint::{platform::software_renderer::MinimalSoftwareWindow, ComponentHandle, ModelRc};
-use slint_interpreter::{ComponentDefinition, ComponentInstance};
+use slint::{platform::software_renderer::MinimalSoftwareWindow, ComponentHandle};
+use slint_interpreter::{ComponentInstance};
 pub fn run(
     // ui: MainUi,
     ui: ComponentInstance,
@@ -95,7 +95,7 @@ pub fn run(
 pub mod hyprland {
     use embargo_workspace::WorkspaceState;
     use hyprland_workspaces::HyprlandWorkspace as DisplayWorkspace;
-    use slint::{private_unstable_api::re_exports::Color, Brush, SharedVector, VecModel};
+    use slint::{private_unstable_api::re_exports::Color, Brush, VecModel};
     use slint_interpreter::{Struct, Value};
     pub struct Workspaces(Vec<DisplayWorkspace>);
     impl Workspaces {
