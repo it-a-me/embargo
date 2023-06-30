@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.71"
-slint = "1.1.0"
+slint = { version = "1.1.0", default-features = false }
 smithay-client-toolkit = "0.17.0"
 tracing = "0.1.37"
 wayland-client = "0.30.2"

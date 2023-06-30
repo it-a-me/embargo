@@ -85,7 +85,7 @@ struct ConfigFile {
 
 impl ConfigFile {
     pub fn generate_default(path: &Path) -> anyhow::Result<()> {
-        let config = toml::to_string(&Self::default())?;
+        let config = toml::to_string_pretty(&Self::default())?;
         std::fs::write(path, config.as_bytes())?;
         Ok(())
     }
@@ -106,6 +106,11 @@ impl Default for ConfigFile {
 enum SimpleAnchor {
     Top,
     Bottom,
+}
+impl Default for SimpleAnchor {
+    fn default() -> Self {
+        Self::Top
+    }
 }
 impl From<SimpleAnchor> for Anchor {
     fn from(val: SimpleAnchor) -> Self {
